@@ -19,6 +19,8 @@
 #%%
 from collections import OrderedDict
 from itertools import islice
+
+from data import DictEncoder
 # --------------------------------------------------------------------------- #
 class IO:
     def __init__(self, infilepath="./data/categories.txt", outfilepath="./data/patterns.txt"):        
@@ -28,9 +30,9 @@ class IO:
 
     def read(self):
         """Loads datas data into a transaction database in dictionary format."""        
-        d = OrderedDict()
+        d = OrderedDict()        
         with open(self._infilepath, "r") as f:
-            for i, line in enumerate(f):
+            for i, line in enumerate(f):                
                 d[i] = line.split("\n")[0].split(";")
         return d
 
@@ -43,14 +45,18 @@ class IO:
                     line += ';'.join(itemset.items)
                     line += "\n"
                     f.write(line)
-        
-
-
                 
 if __name__ == '__main__':
     io = IO()
     xdb = io.read()
     l = list(islice(xdb.items(),20))    
     [print(line) for line in l]
+
+    e = DictEncoder()
+    e.fit(xdb)
+    xdb_x = e.transform(xdb)
+    l = list(islice(xdb_x.items(),20))    
+    [print(line) for line in l]
+    
 
 #%%

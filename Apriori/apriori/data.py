@@ -28,26 +28,28 @@ class DictEncoder:
     def __init__(self):
         self._forward_mapping = OrderedDict()
         self._inverse_mapping = OrderedDict()        
-        self._items = Set()
+        self._items = set()
 
     def fit(self, X):
         """Creates a set of unique values in X, and a mapping dictionaries."""
-        self._items = Set()
+        self._items = set()
         self._forward_mapping = OrderedDict()
         self._inverse_mapping = OrderedDict()
-        for k,v in X.items():
-            self._items.add(v)
+        [[self._items.add(item) for item in itemslist] for _, itemslist in X.items()]
+        # for line, itemslist in X.items():
+        #     for item in itemslist:
+        #         self._items.add(item)
         self._items = sorted(self._items)
         for idx, item in enumerate(self._items):
-            self._forward_mapping[item] = code
-            self._inverse_mapping[code] = item
+            self._forward_mapping[item] = idx
+            self._inverse_mapping[idx] = item
     
     def transform(self, X):
         """Encodes the values of the X."""
         d = OrderedDict()
         for idx, items in X.items():
             encoded_items = []
-            for item in items:
+            for item in sorted(items):
                 encoded_items.append(self._forward_mapping.get(item))
             d[idx] = encoded_items
         return d
