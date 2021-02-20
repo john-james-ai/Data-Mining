@@ -23,7 +23,7 @@ import pandas as pd
 from time import time
 
 from IO import IO
-from preprocessing import Encoder, DictEncoder 
+from preprocessing import AprioriDatafy 
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 from utils import print_dict
 # --------------------------------------------------------------------------- #
@@ -52,54 +52,99 @@ class Apriori:
         with one itemset per line.
     """
 
-    def __init__(self, infilepath, outfilepath, minrelsup=0.01):
+    def __init__(self, infilepath, outfilepath, minrelsup=0.01, start_idx=0):
         self._infilepath = infilepath
         self._outfilepath = outfilepath
         self._minrelsup = minrelsup
+        self._start_idx = start_idx
         self._minsup = 0
-        self._db = None
-        self._frequent_itemsets = pd.DataFrame()
+        self._db = None     # Database
+        self._L_1 = None    # L_1-itemsets
+        self._Lk = None    # Large k-itemsets
+        self._Ck = None    # Candidate k-itemsets
+        self._frequent_itemsets = pd.DataFrame()  # all frequent itemsets
 
     def preprocess(self):
-        """Loads, maps, and creates the transaction database as a Pandas DataFrame."""                
-        io = IO(self._infilepath, self._outfilepath)
-        db = io.read()
-        # Encode the items to integers
-        encoder = Encoder()
-        db = encoder.fit_transform(db)        
-        db = pd.Series(db)
-        # Create the one-hot dataframe using sklearn's MultiLabelBinarizer
-        mlb = MultiLabelBinarizer()
-        self._db = pd.DataFrame(mlb.fit_transform(db),
-                   columns=mlb.classes_,
-                   index=db.index)
-        self._minsup = self._minrelsup * self._db.shape[0]
-        return self._db
+        """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
+        datafy = AprioriDatafy(self._infilepath, self._outfilepath, self._start_idx) 
+        self._db = datafy.fit_transform()
+        self._minsup = self._minrelsup * self._db.shape[0]        
 
     def gen_l1_itemsets(self):
         """Creates L1 large itemsets."""
-        # items = self._db.apply(pd.value_counts).sum(axis=0)\
-        #     .where(lambda value: value >= self._minsup).dropna()
+        # Extract rows with at least one item
+        subset = self._db[self._db.sum(axis=1)>0]        
+        # Get the columns names containing frequent 1-itemsets
+        items = subset.columns[(subset.sum(axis=0) >= self._minsup)].values
+        # Count support by summing axis=0
+        support = subset.iloc[:,items-self._start_idx].sum(axis=0)
+        # Format and return
+        self._L_1 = pd.DataFrame(
+            {'k':1, 'items': items, "support": support.values})
+        self._L_1.to_string(index=False)        
 
-        items = pd.Series(self._db[self._db.sum(axis=0)>=self._minsup].columns)
-        print("\nItems")
-        print(items)
+    def join(self, k, Lk_1):
+        """Joins Lk-1 itemset with itself to get all combinations of itemsets""" 
+        return list(combinations(Lk_1['items'].values, k))
 
-        self._frequent_itemsets = pd.DataFrame(
-            {'k':1, 'items': items.index.astype(int), "support": items.values})
+    def prune(self, Ck):
+        """Deletes candidates whos subsets are not frequent."""
+        mask = []
+        for c in Ck:
+            col_idx = [col-self._start_idx for col in c]
+            items = self._db.iloc[:,list(col_idx)]
+            mask.append(sum(items.all(axis=1)) >= self._minsup)
+        Ck = [b for a,b in zip(mask, Ck) if a]
+        return Ck
+            
 
-        return self._frequent_itemsets.to_string(index=False)
+    def get_candidates(self, k):
+        """Generates candidates Ck."""
+        # Obtain l_k-1 from frequent itemsets.
+        Lk_1 = self._frequent_itemsets[self._frequent_itemsets.k == k-1]
+        print("\nLk_prev")
+        print(Lk_1)
+        # Reduce transaction database to those itemsets >= k
+        self._db = self._db[self._db.sum(axis=1) >= k]
+        print("\nDatabase after")
+        print(self._db)
+        # Join step: Get the combinations from lk-1
+        print("\nCk")
+        Ck = self.join(k, Lk_1)
+        print(Ck)
+        # Prune step: delete candidates that are not frequent
+        Lk = self.prune(Ck)
+        self._frequent_itemsets.append(Lk)
+        print(Lk)
+        
+        return Lk
+
+
+    def mine(self):
+        self.preprocess()
+        self.gen_l1_itemsets()
+        self._Lk = self._L_1
+        self._frequent_itemsets = self._Lk 
+        self.get_candidates(2)
+        self._frequent_itemsets = self._Lk 
+        self.get_candidates(3)
+        self._frequent_itemsets = self._Lk 
+        print(self._frequent_itemsets)
+
+        # while (self._L_k.shape[0] > 0):
+
+        #     for size in range(2, len(self._L_1) + 1):
+        #         self.get_candidates(size)
+        #         if self._L_k.shape[0] == 0: 
+        #             break
 
 
 if __name__ == '__main__':
     infilepath = "./data/figure3.txt"
     outfilepath = "./data/patterns.txt"
 
-    apriori = Apriori(infilepath, outfilepath, 0.5)
-    df = apriori.preprocess()
-    print(df)
-    l1 = apriori.gen_l1_itemsets()
-    print(l1)
-    #print_dict(l1,10)
+    apriori = Apriori(infilepath, outfilepath, 0.5, 1)
+    apriori.mine()
+    
 
 #%%
