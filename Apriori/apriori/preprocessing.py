@@ -21,8 +21,51 @@
 # =========================================================================== #
 #%%
 from collections import OrderedDict
-import pandas as pd
-from sklearn import preprocessing
+# --------------------------------------------------------------------------- #
+class Encoder:
+    def __init__(self):
+        self._forward_mapping = OrderedDict()
+        self._inverse_mapping = OrderedDict()        
+        self._items = set()
+
+    def fit(self, X):
+        """Creates a set of unique values in X, and a mapping dictionaries."""
+        self._items = set()
+        self._forward_mapping = OrderedDict()
+        self._inverse_mapping = OrderedDict()
+        [[self._items.add(item) for item in itemslist] for _, itemslist in X.items()]
+        # for line, itemslist in X.items():
+        #     for item in itemslist:
+        #         self._items.add(item)
+        self._items = sorted(self._items)
+        for idx, item in enumerate(self._items):
+            self._forward_mapping[item] = idx
+            self._inverse_mapping[idx] = item
+    
+    def transform(self, X):
+        """Encodes the values of the X."""
+        a = []
+        for idx, items in X.items():
+            encoded_items = []
+            for item in sorted(items):
+                encoded_items.append(self._forward_mapping.get(item))
+            a.append(encoded_items)
+        return a
+
+    def fit_transform(self, X):
+        self.fit(X)
+        return self.transform(X)        
+
+    def inverse_transform(self, X):
+        """Decodes values from a dict back into original values."""
+        a = []
+        for idx, items in X.items():
+            decoded_items = []
+            for item in items:
+                decoded_items.append(self._inverse_mapping.get(item))
+            a.append(decoded_items)
+        return a
+                
 # --------------------------------------------------------------------------- #
 class DictEncoder:
     def __init__(self):
@@ -54,6 +97,10 @@ class DictEncoder:
             d[idx] = encoded_items
         return d
 
+    def fit_transform(self, X):
+        self.fit(X)
+        return self.transform(X)        
+
     def inverse_transform(self, X):
         """Decodes values from a dict back into original values."""
         d = OrderedDict()
@@ -63,6 +110,4 @@ class DictEncoder:
                 decoded_items.append(self._inverse_mapping.get(item))
             d[idx] = decoded_items
         return d
-                
-
 #%%

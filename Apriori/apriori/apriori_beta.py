@@ -16,6 +16,7 @@
 # License : BSD                                                               #
 # Copyright (c) 2021 nov8.ai                                                  #
 # =========================================================================== #
+#%%
 from itertools import combinations
 from operator import itemgetter
 import pandas as pd
@@ -26,13 +27,15 @@ def perform_apriori(data, support_count):
 
     single_items = (data['items'].str.split(",", expand=True))\
         .apply(pd.value_counts).sum(axis=1).where(lambda value: value > support_count).dropna()
+    
+    print(single_items)
 
     apriori_data = pd.DataFrame(
         {'items': single_items.index.astype(int), 'support_count': single_items.values, 'set_size': 1})
 
     data['set_size'] = data['items'].str.count(",") + 1
 
-    data['items'] = data['items'].apply(lambda row: set(map(int, row.split(","))))
+    #data['items'] = data['items'].apply(lambda row: set(map(int, row.split(","))))
 
     single_items_set = set(single_items.index.astype(int))
 
@@ -51,7 +54,11 @@ def perform_apriori(data, support_count):
 
 
 if __name__ == '__main__':
-    table = pd.read_csv('../datasets/sampledata_numbers.csv')
+    table = pd.read_csv('./data/sample.csv',dtype=object, error_bad_lines=False)
+    print(table.head())
+    print(table.shape)
     start = time()
     print(perform_apriori(data=table, support_count=500))
     print(time() - start)
+
+#%%
