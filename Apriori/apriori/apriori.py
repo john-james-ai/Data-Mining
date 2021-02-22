@@ -24,6 +24,7 @@ import pandas as pd
 from time import time
 
 from IO import IO
+from itemsets import Itemsets
 from preprocessing import AprioriDatafy 
 # --------------------------------------------------------------------------- #
 class Apriori:
@@ -57,7 +58,9 @@ class Apriori:
         self._minrelsup = minrelsup
         self._start_idx = start_idx
         self._minsup = 0
-        self._db = None     
+        self._db = None    
+        self.L = Itemsets()  # all frequent itemsets
+        self.Lk = Itemsets() # all k-itemsets that are frequent 
         
     def preprocess(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
@@ -66,17 +69,19 @@ class Apriori:
         self._minsup = self._minrelsup * self._db.shape[0]        
 
     def gen_l1_itemsets(self):
-        """Creates L1 large itemsets."""
+        """Creates L1 large itemsets as list of dictionaries."""
         # Extract rows with at least one item
         subset = self._db[self._db.sum(axis=1)>0]        
         # Get the columns names containing frequent 1-itemsets
         items = subset.columns[(subset.sum(axis=0) >= self._minsup)].values
         # Count support by summing axis=0
         support = subset.iloc[:,items-self._start_idx].sum(axis=0)
-        # Format and return
-        l1 = pd.DataFrame(
-            {'k':1, 'itemsets': items, "support": support.values})
-        return l1   
+        # Add k1 itemsets to L and Lk itemset objects
+        for item,s in zip(items, support):
+            d = {"k": 1, "itemset": item, "support": s}
+            self._L.add_itemset(d)
+            self._Lk.add_itemset(d)
+        
 
     def get_frequent(self, k, Ck):
         """Prunes infrequent itemsets and returns new frequent itemsets."""
@@ -88,15 +93,14 @@ class Apriori:
             if support >= self._minsup:
                 print(f"adding {c} to Lk")
                 df = pd.DataFrame({"k":k, "support": support}, index=[k])
-                df["itemsets"] = c
+                df["itemset"] = c
                 Lk = Lk.append(pd.DataFrame(d))                
         return Lk
             
 
     def get_candidates(self, k, Lk_prev):
         """Generates candidates Ck."""        
-        # Reduce transaction database to those itemsets >= k
-        #self._db = self._db[self._db.sum(axis=1) >= k]
+
         # Join step: Get the combinations from lk-1
         print("\nLk_prev itemsets")
         itemsets = sorted(set(Lk_prev['itemsets'].values))
@@ -114,11 +118,10 @@ class Apriori:
         
         self.preprocess()
 
-        frequent_itemsets = self.gen_l1_itemsets()
-        Lk_prev = frequent_itemsets
+        self.gen_l1_itemsets()
+        self.L.print()
         k = 2
-        print(Lk_prev)
-        while (Lk_prev.shape[0] != 0):
+        while (len(Lk_prev) != 0):
             Ck = self.get_candidates(k, Lk_prev)
             Lk = self.get_frequent(k, Ck)
             frequent_itemsets = frequent_itemsets.append(Lk)
