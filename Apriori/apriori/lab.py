@@ -17,24 +17,19 @@
 # Copyright (c) 2021 nov8.ai                                                  #
 # =========================================================================== #
 #%%
+from collections import OrderedDict
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 # --------------------------------------------------------------------------- #
-a = ["home and car, bar & restaurant; hit; bump; toke;"]
-b = ["one and two, three; a,b,c; red,green,blue,yellow; a,b,c; toke;"]
-a = a[0].split(";")
-b = b[0].split(";")
-c = np.concatenate((a,b), axis=0)
-print(c)
-c = c[0].split(";").split(",")
-print(c)
-e = LabelEncoder()
-c_e = e.fit_transform(c)
-print(c_e)
-c_d = e.inverse_transform(c_e)
-print(c_d)
-assert((c == c_d).all())
-i = [3,2,2,5,7,1]
-i_d = e.inverse_transform(i)
-print(i_d)
+d1 = {"k":3, "itemset": [3,4,8], "support": 14}
+d2 = {"k":3, "itemset": [3,4,18], "support": 5}
+collection = OrderedDict()
+collection[1] = {"soomething": "else"}
+print(collection)
+itemsets = []
+itemsets.append(d1)
+itemsets.append(d2)
+collection[d1["k"]] = itemsets
+
+print(collection)

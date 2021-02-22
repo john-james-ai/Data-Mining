@@ -87,7 +87,8 @@ class Apriori:
             support = subset[subset.sum(axis=1) == k].shape[0]
             if support >= self._minsup:
                 print(f"adding {c} to Lk")
-                d = {"k":k,"itemsets":c, "support": support}                
+                df = pd.DataFrame({"k":k, "support": support}, index=[k])
+                df["itemsets"] = c
                 Lk = Lk.append(pd.DataFrame(d))                
         return Lk
             
@@ -95,9 +96,15 @@ class Apriori:
     def get_candidates(self, k, Lk_prev):
         """Generates candidates Ck."""        
         # Reduce transaction database to those itemsets >= k
-        self._db = self._db[self._db.sum(axis=1) >= k]
+        #self._db = self._db[self._db.sum(axis=1) >= k]
         # Join step: Get the combinations from lk-1
-        Ck = list(combinations(Lk_prev['itemsets'].values, k))
+        print("\nLk_prev itemsets")
+        itemsets = sorted(set(Lk_prev['itemsets'].values))
+        Ck = map(list, combinations(itemsets, k))
+        print(f"Initial set of k={k} candidates")
+        print(Ck)        
+        # Prune step: Not as per Argawal. Rather, removing duplicate items from itemsets
+        Ck = [item for item in Ck if len(set(item)) == len(item)]
         print(f"Returning the following k={k} candidates")
         print(Ck)
         return Ck
@@ -114,7 +121,7 @@ class Apriori:
         while (Lk_prev.shape[0] != 0):
             Ck = self.get_candidates(k, Lk_prev)
             Lk = self.get_frequent(k, Ck)
-            frequent_itemsets.append(Lk)
+            frequent_itemsets = frequent_itemsets.append(Lk)
             Lk_prev = Lk
             k += 1
         print(frequent_itemsets)
