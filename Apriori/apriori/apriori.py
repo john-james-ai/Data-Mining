@@ -17,6 +17,7 @@
 # Copyright (c) 2021 nov8.ai                                                  #
 # =========================================================================== #
 #%%
+from collections import OrderedDict
 from itertools import combinations
 from operator import itemgetter
 import pandas as pd
@@ -24,8 +25,6 @@ from time import time
 
 from IO import IO
 from preprocessing import AprioriDatafy 
-from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
-from utils import print_dict
 # --------------------------------------------------------------------------- #
 class Apriori:
     """Apriori Algorithm
@@ -58,12 +57,8 @@ class Apriori:
         self._minrelsup = minrelsup
         self._start_idx = start_idx
         self._minsup = 0
-        self._db = None     # Database
-        self._L_1 = None    # L_1-itemsets
-        self._Lk = None    # Large k-itemsets
-        self._Ck = None    # Candidate k-itemsets
-        self._frequent_itemsets = pd.DataFrame()  # all frequent itemsets
-
+        self._db = None     
+        
     def preprocess(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
         datafy = AprioriDatafy(self._infilepath, self._outfilepath, self._start_idx) 
@@ -79,71 +74,58 @@ class Apriori:
         # Count support by summing axis=0
         support = subset.iloc[:,items-self._start_idx].sum(axis=0)
         # Format and return
-        self._L_1 = pd.DataFrame(
-            {'k':1, 'items': items, "support": support.values})
-        self._L_1.to_string(index=False)        
+        l1 = pd.DataFrame(
+            {'k':1, 'itemsets': items, "support": support.values})
+        return l1   
 
-    def join(self, k, Lk_1):
-        """Joins Lk-1 itemset with itself to get all combinations of itemsets""" 
-        return list(combinations(Lk_1['items'].values, k))
-
-    def prune(self, Ck):
-        """Deletes candidates whos subsets are not frequent."""
-        mask = []
+    def get_frequent(self, k, Ck):
+        """Prunes infrequent itemsets and returns new frequent itemsets."""
+        Lk = pd.DataFrame()
         for c in Ck:
             col_idx = [col-self._start_idx for col in c]
-            items = self._db.iloc[:,list(col_idx)]
-            mask.append(sum(items.all(axis=1)) >= self._minsup)
-        Ck = [b for a,b in zip(mask, Ck) if a]
-        return Ck
+            subset = self._db.iloc[:,list(col_idx)]
+            support = subset[subset.sum(axis=1) == k].shape[0]
+            if support >= self._minsup:
+                print(f"adding {c} to Lk")
+                d = {"k":k,"itemsets":c, "support": support}                
+                Lk = Lk.append(pd.DataFrame(d))                
+        return Lk
             
 
-    def get_candidates(self, k):
-        """Generates candidates Ck."""
-        # Obtain l_k-1 from frequent itemsets.
-        Lk_1 = self._frequent_itemsets[self._frequent_itemsets.k == k-1]
-        print("\nLk_prev")
-        print(Lk_1)
+    def get_candidates(self, k, Lk_prev):
+        """Generates candidates Ck."""        
         # Reduce transaction database to those itemsets >= k
         self._db = self._db[self._db.sum(axis=1) >= k]
-        print("\nDatabase after")
-        print(self._db)
         # Join step: Get the combinations from lk-1
-        print("\nCk")
-        Ck = self.join(k, Lk_1)
+        Ck = list(combinations(Lk_prev['itemsets'].values, k))
+        print(f"Returning the following k={k} candidates")
         print(Ck)
-        # Prune step: delete candidates that are not frequent
-        Lk = self.prune(Ck)
-        self._frequent_itemsets.append(Lk)
-        print(Lk)
+        return Ck
+
+
+    def mine(self):                        
         
-        return Lk
-
-
-    def mine(self):
         self.preprocess()
-        self.gen_l1_itemsets()
-        self._Lk = self._L_1
-        self._frequent_itemsets = self._Lk 
-        self.get_candidates(2)
-        self._frequent_itemsets = self._Lk 
-        self.get_candidates(3)
-        self._frequent_itemsets = self._Lk 
-        print(self._frequent_itemsets)
 
-        # while (self._L_k.shape[0] > 0):
-
-        #     for size in range(2, len(self._L_1) + 1):
-        #         self.get_candidates(size)
-        #         if self._L_k.shape[0] == 0: 
-        #             break
+        frequent_itemsets = self.gen_l1_itemsets()
+        Lk_prev = frequent_itemsets
+        k = 2
+        print(Lk_prev)
+        while (Lk_prev.shape[0] != 0):
+            Ck = self.get_candidates(k, Lk_prev)
+            Lk = self.get_frequent(k, Ck)
+            frequent_itemsets.append(Lk)
+            Lk_prev = Lk
+            k += 1
+        print(frequent_itemsets)
+        #self.save_itemsets(frequent_itemsets)
 
 
 if __name__ == '__main__':
     infilepath = "./data/figure3.txt"
     outfilepath = "./data/patterns.txt"
 
-    apriori = Apriori(infilepath, outfilepath, 0.5, 1)
+    apriori = Apriori(infilepath=infilepath, outfilepath=outfilepath, minrelsup=0.5, start_idx=1)
     apriori.mine()
     
 
