@@ -26,10 +26,9 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from IO import IO
 # --------------------------------------------------------------------------- #
 class AprioriDatafy:
-    def __init__(self, infilepath, outfilepath,  start_idx=0):
+    def __init__(self, infilepath, outfilepath):
         self._infilepath= infilepath
         self._outfilepath = outfilepath
-        self._start_idx = start_idx
         self._database = None
         self._encoder = None
 
@@ -37,7 +36,7 @@ class AprioriDatafy:
         """Creates the encoding map."""
         io = IO(self._infilepath, self._outfilepath)
         db = io.read()                
-        self._encoder = Encoder(start_idx=self._start_idx)
+        self._encoder = Encoder()
         self._database = self._encoder.fit_transform(db)
         self._database = pd.Series(self._database)
         print(self._database)
@@ -57,11 +56,10 @@ class AprioriDatafy:
 
 
 class Encoder:
-    def __init__(self, start_idx=0):
+    def __init__(self):
         self._forward_mapping = OrderedDict()
         self._inverse_mapping = OrderedDict()        
         self._items = set()
-        self._start_idx = start_idx
 
     def fit(self, X):
         """Creates a set of unique values in X, and a mapping dictionaries."""
@@ -73,8 +71,7 @@ class Encoder:
         #     for item in itemslist:
         #         self._items.add(item)
         self._items = sorted(self._items)
-        for idx, item in enumerate(self._items):
-            idx += self._start_idx
+        for idx, item in enumerate(self._items):            
             self._forward_mapping[item] = idx
             self._inverse_mapping[idx] = item
     
@@ -104,11 +101,10 @@ class Encoder:
                 
 # --------------------------------------------------------------------------- #
 class DictEncoder:
-    def __init__(self, start_idx=0):
+    def __init__(self):
         self._forward_mapping = OrderedDict()
         self._inverse_mapping = OrderedDict()        
         self._items = set()
-        self._start_idx = start_idx
 
     def fit(self, X):
         """Creates a set of unique values in X, and a mapping dictionaries."""
@@ -121,7 +117,6 @@ class DictEncoder:
         #         self._items.add(item)
         self._items = sorted(self._items)
         for idx, item in enumerate(self._items):
-            idx += self._start_idx
             self._forward_mapping[item] = idx
             self._inverse_mapping[idx] = item
     

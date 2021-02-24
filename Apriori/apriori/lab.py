@@ -18,18 +18,15 @@
 # =========================================================================== #
 #%%
 from collections import OrderedDict
+from itertools import combinations
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 # --------------------------------------------------------------------------- #
-d1 = {"k":3, "itemset": [3,4,8], "support": 14}
-d2 = {"k":3, "itemset": [3,4,18], "support": 5}
-collection = OrderedDict()
-collection[1] = {"soomething": "else"}
-print(collection)
-itemsets = []
-itemsets.append(d1)
-itemsets.append(d2)
-collection[d1["k"]] = itemsets
+a = [1,2,3,5,6]
+b = combinations(a, 3)
+for c in b:
+    print(c)
 
-print(collection)
+d = set(b)
+print(d)
