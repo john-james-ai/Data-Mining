@@ -23,10 +23,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 # --------------------------------------------------------------------------- #
-a = [1,2,3,5,6]
-b = combinations(a, 3)
-for c in b:
-    print(c)
-
-d = set(b)
-print(d)
+a = [2,3,5]
+b = [2,23]
+a.extend(b)
+print(a)

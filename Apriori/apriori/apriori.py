@@ -53,74 +53,121 @@ class Apriori:
         with one itemset per line.
     """
 
-    def __init__(self, infilepath, outfilepath, minrelsup=0.01):
+    def __init__(self, infilepath, outfilepath1, outfilepath2, minrelsup=0.01):
         self._infilepath = infilepath
-        self._outfilepath = outfilepath
-        self._minrelsup = minrelsup
-        self._minsup = 0
-        self._db = None    
-        self.L = Itemsets()  # all frequent itemsets
-        self.Lk = Itemsets() # all k-itemsets that are frequent 
+        self._outfilepath1 = outfilepath1
+        self._outfilepath2 = outfilepath2
+        self._minrelsup = minrelsup         # Relative minimum support
+        self._minsup = 0                    # Absolute minimum support        
+        self._itemset_id = 0                # Itemset sequence number
+        self._L = Itemsets()                # all frequent itemsets
+        self._Lk = Itemsets()               # all k-itemsets that are frequent 
+        self._complete = False              # True when all frequent itemsets mined.
+        self._datafy = None                 # Object responsible for reading and writing data
+        self._io = None                     # Object responsible for file IO        
         
-    def preprocess(self):
+    def _start(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
-        datafy = AprioriDatafy(self._infilepath, self._outfilepath) 
-        self._db = datafy.fit_transform()
+        self._io = IO()
+        db = self._io.read(self._infilepath)
+        self._datafy = AprioriDatafy() 
+        self._db = self._datafy.fit_transform(db)
         self._minsup = self._minrelsup * self._db.shape[0]        
 
-    def gen_L1_itemsets(self):
+    def _gen_L1_itemsets(self):
         """Creates L1 large itemsets as list of dictionaries."""
         # Get 1-itemsets by summing over rows >= minsup
-        items = self._db[self._db.sum(axis=0)>=self._minsup].columns                
+        items = self._db[self._db.sum(axis=0)>=self._minsup].columns    
         # Count support by summing axis=0
         support = self._db.iloc[:,items].sum(axis=0)
         # Add k1 itemsets to L and Lk itemset objects
         for item,s in zip(items, support):            
-            d = {"k": 1, "itemset": item, "support": s}
-            self.L.add_itemset(d)
-            self.Lk.add_itemset(d)
+            d = {"k": 1, "id": self._itemset_id, "itemset": item, "support": s}
+            self._L.add_itemset(d)
+            self._Lk.add_itemset(d)
+            self._itemset_id += 1
         
 
-    def set_frequent(self, k, Ck):
+    def _set_frequent(self, k, Ck):
         """Prunes infrequent itemsets and returns new frequent itemsets."""
         Lk = pd.DataFrame()
         for c in Ck:
             col_idx = [col for col in c]
             subset = self._db.iloc[:,list(col_idx)]
-            support = subset[subset.sum(axis=1) == k].shape[0]
+            support = subset[subset.sum(axis=1) >= k].shape[0]
             if support >= self._minsup:
                 print(f"adding {c} to Lk")
-                d = {"k": k, "itemset": c, "support": support}
-                self.L.add_itemset(d)
-                self.Lk.add_itemset(d)                
+                d = {"k": k, "id": self._itemset_id, "itemset": c, "support": support}
+                self._L.add_itemset(d)
+                self._Lk.add_itemset(d)     
+                self._itemset_id += 1
 
-    def get_candidates(self, k):
+
+    def _extract_items(self, k):
+        """Extracts individual items from lk-1 and dedups."""           
+        items = []
+        itemsets = sorted(list(self._Lk.get_itemsets(k-1)))        
+        if k > 2: 
+            a = [x for l in itemsets for x in l]
+            [items.append(x) for x in a if x not in items]
+        else:
+            [items.append(x) for x in itemsets if x not in items]
+        print(f"The sorted, deduped and flattened items {items}")
+        return items                
+
+    def _get_candidates(self, k):
         """Generates candidates Ck."""        
+        # Extract step: Get all items from lk-1 itemsets
+        items = self._extract_items(k)
         # Join step: Get the combinations from lk-1        
-        itemsets = self.Lk.get_itemsets(k-1)
-        Ck = combinations(itemsets, k)
+        Ck = list(combinations(items, k)) 
+        # if Ck size is 0, we're done.
+        if len(Ck) == 0:
+            self._complete = True
+        else:
+            # Re-sort after converting to list
+            Ck = sorted(Ck)
+            Ck = [sorted(item) for item in Ck]        
+            print(f"\n\nAbout to prune {Ck}")
+            print("_"*10)
+            # Prune step: Remove itemsets whose k-1 items are not frequent 
+            Ck = list(self._Lk.prune_candidates(k,Ck))
+            print(f"\nAfter pruning we have{Ck}")      
         return Ck
 
+    def _finish(self):
+        """Write L, all frequent itemsets, to file."""
+        L1, Lk = self._datafy.inverse_transform(self._L)
+        self._io.write(L1, self._outfilepath1)        
+        self._io.write(Lk, self._outfilepath2)        
 
     def mine(self):                        
         
-        self.preprocess()
+        self._start()
 
-        self.gen_L1_itemsets()
-        self.L.print()
+        self._gen_L1_itemsets()
+        self._L.print()
         k = 2
-        while (self.Lk.total_itemsets != 0):
-            Ck = self.get_candidates(k)
-            self.set_frequent(k, Ck)            
+        while (self._Lk.total_itemsets != 0 and 
+               not self._complete):
+            print(f"\nIterating over k={k}")
+            Ck = self._get_candidates(k)
+            
+            if self._complete: break
+            
+            self._set_frequent(k, Ck)            
             k += 1
-        print(self.L.print())
+        self._finish()
+        print(self._L.print())
 
 
 if __name__ == '__main__':
     infilepath = "./data/figure3.txt"
-    outfilepath = "./data/patterns.txt"
+    outfilepath1 = "./data/F1/patterns.txt"
+    outfilepath2 = "./data/Fn/patterns.txt"
 
-    apriori = Apriori(infilepath=infilepath, outfilepath=outfilepath, minrelsup=0.5)
+    apriori = Apriori(infilepath=infilepath, outfilepath1=outfilepath1, 
+                      outfilepath2=outfilepath2, minrelsup=0.5)
     apriori.mine()
     
 

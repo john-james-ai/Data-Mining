@@ -20,27 +20,26 @@
 from collections import OrderedDict
 # --------------------------------------------------------------------------- #
 class IO:
-    def __init__(self, infilepath="./data/categories.txt", outfilepath="./data/patterns.txt"):        
+    def __init__(self):        
         """Performs file input/output as well as itemset normalization."""
-        self._infilepath = infilepath
-        self._outfilepath = outfilepath
+        pass
 
-    def read(self):
+    def read(self, filepath):
         """Loads datas data into a transaction database in dictionary format."""        
         d = OrderedDict()        
-        with open(self._infilepath, "r") as f:
+        with open(filepath, "r") as f:
             for i, line in enumerate(f):                
                 d[i] = line.split("\n")[0].split(";")
         return d
+    
+    def write(self, X, filepath):
+        """Writes decoded itemsets to outfilepath as per specification"""
+        with open(filepath, "a") as f:            
+            for i in range(len(X)):
+                line = str(X[i]["support"]) + ":" + str(';'.join(X[i]["itemset"])) + "\n"
+                f.write(line)
 
-    def write(self, X, k=1):
-        """Writes i=1:k decoded itemsets to outfilepath as per specification"""
-        with open(self._outfilepath, "a") as f:
-            for i in range(k):
-                for itemset in X[i+1]["itemset_list"]:
-                    line = str(itemset.support) + ":"
-                    line += ';'.join(itemset.items)
-                    line += "\n"
-                    f.write(line)
+
+
                 
 #%%

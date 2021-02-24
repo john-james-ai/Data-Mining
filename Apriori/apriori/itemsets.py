@@ -29,9 +29,19 @@ class Itemsets:
         self.total_itemsets = 0        
 
     def get_itemsets(self, k):
-        """Returns list of k-itemsets."""
-        itemsets = [item["itemset"] for item in self._itemsets[k]]
-        return itemsets        
+        """Returns a list of itemsets of size k."""        
+        itemsets = []
+        itemset_list = self._itemsets[k]
+        for itemset in itemset_list:
+            itemsets.append(itemset["itemset"])
+        return itemsets
+
+    def get_itemset_db(self, k=None):
+        """This returns the entire itemset object including support,k, and id"""
+        if k:
+            return self._itemsets[k]
+        else:
+            return self._itemsets
 
     def add_itemset(self, itemset):
         """Adds itemset to collection and updates counts."""
@@ -54,31 +64,49 @@ class Itemsets:
         for itemset in itemsets:
             self.add_itemset(itemset)
 
+    def replace_itemset(self, old, new):
+        """Replaces old itemset with new itemset."""
+        k = len(old)
+        itemsets = self.get_itemsets(k)
+        for idx, item in enumerate(itemsets):
+            if item == old:
+                self._itemsets[idx]["itemset"] = new
+                break
+
+        
+
     def prune_candidates(self, k, Ck):
         """Prunes the candidates Ck, returning only those whose k-1 itemsets are frequent."""         
-        Lk = []                         # Candidates to reeturn
-              # Pointer along current k-1 candidates
+        itemlist = []   # Candidates to return
         current_itemsets = [i["itemset"] for i in self._itemsets[k-1]]        
         current_itemsets.sort()
         print("\nCurrent Itemsets")
         print(current_itemsets)
+        print(f"\nReceived the following candidates {Ck}")
         
         for candidate in Ck:                
-            candidate_subsets = tuple(combinations(candidate, k-1))            
+            candidate_subsets = list(combinations(candidate, k-1))
             items_to_find = len(list(candidate_subsets))
-            items_found = 0
-            current_itemsets_ptr = 0  
+            items_found = 0             # Initiate counters 
+            current_itemsets_ptr = 0    # Initiate pointer into current itemsets
+            subset_ptr = 0              # Initiate pointer into subset itemsets
             print(f"\nThere are {items_to_find} candidate subsets.")            
-            print(f"\nThere are {items_found} items found.")            
-
-            for cs in candidate_subsets:
+            print(f"There are {items_found} items found.")            
+            
+            assert (isinstance(candidate_subsets,list))
+            while subset_ptr < len(candidate_subsets):
+                cs = list(candidate_subsets[subset_ptr])                
                 print(f"Searching for subset {cs}")
+                if len(cs) == 1:
+                    cs = cs[0]
                 while ((current_itemsets_ptr < len(list(current_itemsets))) and (items_found < items_to_find)):                
                     print(f"Candidate subset: {cs}, Current: {current_itemsets[current_itemsets_ptr]}")                                    
+                    print(f"Candidate subset: {type(cs)} type, Current: {type(current_itemsets[current_itemsets_ptr])} type.")   
+                    assert isinstance(current_itemsets[current_itemsets_ptr], (list,int))
                     if cs == current_itemsets[current_itemsets_ptr]:                        
                         items_found += 1
                         current_itemsets_ptr += 1
-                        print(f"Found  {items_found} items.")
+                        print(f"Found  {items_found} items. Item = {cs}")                        
                         if items_to_find == items_found:
                             break
                     elif cs > current_itemsets[current_itemsets_ptr]:
@@ -87,7 +115,12 @@ class Itemsets:
                         break
                 if items_to_find == items_found:
                     print(f"Adding {candidate} to large list")
-                    Lk.append(candidate)            
+                    itemlist.append(candidate)
+                subset_ptr += 1   
+
+        # Remove duplicates
+        Lk = [] 
+        [Lk.append(x) for x in itemlist if x not in Lk]          
         return Lk
 
 
@@ -134,25 +167,29 @@ if __name__ == '__main__':
         for j in range(n_itemsets[0]):
             iset = {}
             iset["k"] = i+1
-            iset["itemset"] = tuple(np.random.randint(1,10, i+1))
+            if (i == 0):
+                iset["itemset"] = int(np.random.randint(i,10,i+1))    
+            else:
+                iset["itemset"] = list(np.random.randint(1,10, i+1))
             iset["support"] = np.random.randint(1,100,1)
             itemsets.add_itemset(iset)
     isets = itemsets.get_itemsets(1)
     print(isets)
-    a = {"k": 3, "itemset": (1,2,3), "support": 30}
-    b = {"k": 3, "itemset": (1,2,5), "support": 30}
-    c = {"k": 3, "itemset": (1,3,5), "support": 30}
-    d = {"k": 3, "itemset": (2,3,5), "support": 30}
-    e = {"k": 3, "itemset": (2,3,7), "support": 30}
-    f = {"k": 3, "itemset": (2,5,7), "support": 30}
-    g = {"k": 3, "itemset": (3,5,7), "support": 30}
+    a = {"k": 3, "itemset": [1,2,3], "support": 30}
+    b = {"k": 3, "itemset": [1,2,5], "support": 30}
+    c = {"k": 3, "itemset": [1,3,5], "support": 30}
+    d = {"k": 3, "itemset": [2,3,5], "support": 30}
+    e = {"k": 3, "itemset": [2,3,7], "support": 30}
+    f = {"k": 3, "itemset": [2,5,7], "support": 30}
+    g = {"k": 3, "itemset": [3,5,7], "support": 30}
     candidates = [a,b,c,d,e,f,g]
     itemsets.add_itemset_list(candidates)    
     itemsets.print()
     itemsets.summary()    
     p = [ (1,2,3,5),(2,3,5,7), (6,3,5,2), (9,7,1,5)]
-    print(itemsets.prune_candidate(4,p))    
-
+    print(itemsets.prune_candidates(4,p))    
+    p = [ (1,2),(2,3), (3,6), (7,9)]
+    print(itemsets.prune_candidates(2,p))    
 #%%
             
 

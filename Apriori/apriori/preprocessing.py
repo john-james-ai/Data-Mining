@@ -26,18 +26,14 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from IO import IO
 # --------------------------------------------------------------------------- #
 class AprioriDatafy:
-    def __init__(self, infilepath, outfilepath):
-        self._infilepath= infilepath
-        self._outfilepath = outfilepath
+    def __init__(self):
         self._database = None
         self._encoder = None
 
     def fit(self, X=None):
         """Creates the encoding map."""
-        io = IO(self._infilepath, self._outfilepath)
-        db = io.read()                
         self._encoder = Encoder()
-        self._database = self._encoder.fit_transform(db)
+        self._database = self._encoder.fit_transform(X)
         self._database = pd.Series(self._database)
         print(self._database)
     
@@ -52,7 +48,10 @@ class AprioriDatafy:
     def fit_transform(self, X=None):
         """Convenience and nod to scikit-learn."""
         self.fit(X)
-        return self.transform(X)
+        return self.transform(X)    
+
+    def inverse_transform(self, X=None):
+        return self._encoder.inverse_transform(X)
 
 
 class Encoder:
@@ -89,15 +88,48 @@ class Encoder:
         self.fit(X)
         return self.transform(X)        
 
+    def _inverse_transform_L1(self, X):
+        """ Inverse transforms L1 itemsets back to string representation."""
+        result = []
+        itemset_db = X.get_itemset_db(k=1)
+        print(f"\n\nItemset db is {itemset_db}")
+        for itemset_object in itemset_db:
+            print(f"Itemset object list {itemset_object}")            
+            output = OrderedDict()
+            output["support"] = itemset_object["support"]
+            output["itemset"] = self._inverse_mapping.get(itemset_object["itemset"])           
+            result.append(output)
+        print(f"Result from L1 {result}")
+        return result        
+
+    def _inverse_transform_Lk(self, X):
+        """ Inverse transforms Lk (k>=2) back to string representation."""        
+        result = []
+        itemset = []      
+        itemset_db = X.get_itemset_db()        
+
+        for k, itemset_object_list in itemset_db.items():
+            if k > 1:
+                for itemset_object in itemset_object_list:
+                    print(f"\n\nItemset object is {itemset_object}")
+                    itemset = []
+                    output = OrderedDict()
+                    output["support"] = itemset_object["support"]                    
+                    for j in range(len(itemset_object["itemset"])):
+                        print(f"Index j is {j}")
+                        itemset.append(self._inverse_mapping.get(itemset_object["itemset"][j]))           
+                    output["itemset"] = itemset
+                    result.append(output)
+        return result
+
     def inverse_transform(self, X):
-        """Decodes values from a dict back into original values."""
-        a = []
-        for idx, items in X.items():
-            decoded_items = []
-            for item in items:
-                decoded_items.append(self._inverse_mapping.get(item))
-            a.append(decoded_items)
-        return a
+        """Decodes numberic data back to original strings."""        
+        
+        L1 = self._inverse_transform_L1(X)
+        Lk = self._inverse_transform_Lk(X)
+        Lk = L1 + Lk
+        return L1, Lk
+
                 
 # --------------------------------------------------------------------------- #
 class DictEncoder:
