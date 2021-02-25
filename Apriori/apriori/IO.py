@@ -17,6 +17,7 @@
 # Copyright (c) 2021 nov8.ai                                                  #
 # =========================================================================== #
 #%%
+import os
 from collections import OrderedDict
 # --------------------------------------------------------------------------- #
 class IO:
@@ -34,9 +35,14 @@ class IO:
     
     def write(self, X, filepath):
         """Writes decoded itemsets to outfilepath as per specification"""
+        if  os.path.exists(filepath):
+            os.remove(filepath)
         with open(filepath, "a") as f:            
             for i in range(len(X)):
-                line = str(X[i]["support"]) + ":" + str(';'.join(X[i]["itemset"])) + "\n"
+                if isinstance(X[i]["itemset"], list):
+                    line = str(X[i]["support"]) + ":" + str(';'.join(X[i]["itemset"])) + "\n"                    
+                else:
+                    line = str(X[i]["support"]) + ":" + str(X[i]["itemset"]) + "\n"    
                 f.write(line)
 
 

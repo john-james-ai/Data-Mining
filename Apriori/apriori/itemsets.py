@@ -80,9 +80,6 @@ class Itemsets:
         itemlist = []   # Candidates to return
         current_itemsets = [i["itemset"] for i in self._itemsets[k-1]]        
         current_itemsets.sort()
-        print("\nCurrent Itemsets")
-        print(current_itemsets)
-        print(f"\nReceived the following candidates {Ck}")
         
         for candidate in Ck:                
             candidate_subsets = list(combinations(candidate, k-1))
@@ -90,23 +87,17 @@ class Itemsets:
             items_found = 0             # Initiate counters 
             current_itemsets_ptr = 0    # Initiate pointer into current itemsets
             subset_ptr = 0              # Initiate pointer into subset itemsets
-            print(f"\nThere are {items_to_find} candidate subsets.")            
-            print(f"There are {items_found} items found.")            
             
             assert (isinstance(candidate_subsets,list))
             while subset_ptr < len(candidate_subsets):
                 cs = list(candidate_subsets[subset_ptr])                
-                print(f"Searching for subset {cs}")
                 if len(cs) == 1:
                     cs = cs[0]
                 while ((current_itemsets_ptr < len(list(current_itemsets))) and (items_found < items_to_find)):                
-                    print(f"Candidate subset: {cs}, Current: {current_itemsets[current_itemsets_ptr]}")                                    
-                    print(f"Candidate subset: {type(cs)} type, Current: {type(current_itemsets[current_itemsets_ptr])} type.")   
                     assert isinstance(current_itemsets[current_itemsets_ptr], (list,int))
                     if cs == current_itemsets[current_itemsets_ptr]:                        
                         items_found += 1
                         current_itemsets_ptr += 1
-                        print(f"Found  {items_found} items. Item = {cs}")                        
                         if items_to_find == items_found:
                             break
                     elif cs > current_itemsets[current_itemsets_ptr]:
@@ -114,7 +105,6 @@ class Itemsets:
                     else:
                         break
                 if items_to_find == items_found:
-                    print(f"Adding {candidate} to large list")
                     itemlist.append(candidate)
                 subset_ptr += 1   
 

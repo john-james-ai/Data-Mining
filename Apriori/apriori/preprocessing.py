@@ -34,8 +34,7 @@ class AprioriDatafy:
         """Creates the encoding map."""
         self._encoder = Encoder()
         self._database = self._encoder.fit_transform(X)
-        self._database = pd.Series(self._database)
-        print(self._database)
+        self._database = pd.Series(self._database)        
     
     def transform(self, X=None):
         """Converts encoded data to one-hot dataframe format."""
@@ -66,9 +65,6 @@ class Encoder:
         self._forward_mapping = OrderedDict()
         self._inverse_mapping = OrderedDict()
         [[self._items.add(item) for item in itemslist] for _, itemslist in X.items()]
-        # for line, itemslist in X.items():
-        #     for item in itemslist:
-        #         self._items.add(item)
         self._items = sorted(self._items)
         for idx, item in enumerate(self._items):            
             self._forward_mapping[item] = idx
@@ -92,14 +88,12 @@ class Encoder:
         """ Inverse transforms L1 itemsets back to string representation."""
         result = []
         itemset_db = X.get_itemset_db(k=1)
-        print(f"\n\nItemset db is {itemset_db}")
+
         for itemset_object in itemset_db:
-            print(f"Itemset object list {itemset_object}")            
             output = OrderedDict()
             output["support"] = itemset_object["support"]
             output["itemset"] = self._inverse_mapping.get(itemset_object["itemset"])           
             result.append(output)
-        print(f"Result from L1 {result}")
         return result        
 
     def _inverse_transform_Lk(self, X):
@@ -111,12 +105,10 @@ class Encoder:
         for k, itemset_object_list in itemset_db.items():
             if k > 1:
                 for itemset_object in itemset_object_list:
-                    print(f"\n\nItemset object is {itemset_object}")
                     itemset = []
                     output = OrderedDict()
                     output["support"] = itemset_object["support"]                    
                     for j in range(len(itemset_object["itemset"])):
-                        print(f"Index j is {j}")
                         itemset.append(self._inverse_mapping.get(itemset_object["itemset"][j]))           
                     output["itemset"] = itemset
                     result.append(output)

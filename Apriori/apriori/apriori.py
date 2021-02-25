@@ -22,7 +22,7 @@ from itertools import combinations
 from operator import itemgetter
 import numpy as np
 import pandas as pd
-from time import time
+import time
 
 from IO import IO
 from itemsets import Itemsets
@@ -64,10 +64,13 @@ class Apriori:
         self._Lk = Itemsets()               # all k-itemsets that are frequent 
         self._complete = False              # True when all frequent itemsets mined.
         self._datafy = None                 # Object responsible for reading and writing data
-        self._io = None                     # Object responsible for file IO        
+        self._io = None                     # Object responsible for file IO     
+        self._start_time = None
+        self._end_time = None
         
     def _start(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
+        self._start_time = time.time()
         self._io = IO()
         db = self._io.read(self._infilepath)
         self._datafy = AprioriDatafy() 
@@ -77,7 +80,7 @@ class Apriori:
     def _gen_L1_itemsets(self):
         """Creates L1 large itemsets as list of dictionaries."""
         # Get 1-itemsets by summing over rows >= minsup
-        items = self._db[self._db.sum(axis=0)>=self._minsup].columns    
+        items = self._db.loc[:,self._db.sum(axis=0)>=self._minsup].columns    
         # Count support by summing axis=0
         support = self._db.iloc[:,items].sum(axis=0)
         # Add k1 itemsets to L and Lk itemset objects
@@ -96,7 +99,6 @@ class Apriori:
             subset = self._db.iloc[:,list(col_idx)]
             support = subset[subset.sum(axis=1) >= k].shape[0]
             if support >= self._minsup:
-                print(f"adding {c} to Lk")
                 d = {"k": k, "id": self._itemset_id, "itemset": c, "support": support}
                 self._L.add_itemset(d)
                 self._Lk.add_itemset(d)     
@@ -111,8 +113,7 @@ class Apriori:
             a = [x for l in itemsets for x in l]
             [items.append(x) for x in a if x not in items]
         else:
-            [items.append(x) for x in itemsets if x not in items]
-        print(f"The sorted, deduped and flattened items {items}")
+            [items.append(x) for x in itemsets if x not in items]        
         return items                
 
     def _get_candidates(self, k):
@@ -122,24 +123,26 @@ class Apriori:
         # Join step: Get the combinations from lk-1        
         Ck = list(combinations(items, k)) 
         # if Ck size is 0, we're done.
-        if len(Ck) == 0:
-            self._complete = True
+        if len(Ck) == 0: self._complete = True
         else:
             # Re-sort after converting to list
             Ck = sorted(Ck)
             Ck = [sorted(item) for item in Ck]        
-            print(f"\n\nAbout to prune {Ck}")
-            print("_"*10)
             # Prune step: Remove itemsets whose k-1 items are not frequent 
             Ck = list(self._Lk.prune_candidates(k,Ck))
-            print(f"\nAfter pruning we have{Ck}")      
+            if len(Ck) == 0: self._complete = True            
         return Ck
 
     def _finish(self):
         """Write L, all frequent itemsets, to file."""
         L1, Lk = self._datafy.inverse_transform(self._L)
         self._io.write(L1, self._outfilepath1)        
-        self._io.write(Lk, self._outfilepath2)        
+        self._io.write(Lk, self._outfilepath2)       
+        self._end_time = time.time()
+        e = round(self._end_time - self._start_time,3)
+        self._L.summary()
+        print(f"Elapsed time: {e} seconds")
+        
 
     def mine(self):                        
         
@@ -150,24 +153,22 @@ class Apriori:
         k = 2
         while (self._Lk.total_itemsets != 0 and 
                not self._complete):
-            print(f"\nIterating over k={k}")
             Ck = self._get_candidates(k)
             
             if self._complete: break
             
             self._set_frequent(k, Ck)            
-            k += 1
+            k += 1        
         self._finish()
-        print(self._L.print())
 
 
 if __name__ == '__main__':
-    infilepath = "./data/figure3.txt"
+    infilepath = "./data/categories.txt"
     outfilepath1 = "./data/F1/patterns.txt"
     outfilepath2 = "./data/Fn/patterns.txt"
 
     apriori = Apriori(infilepath=infilepath, outfilepath1=outfilepath1, 
-                      outfilepath2=outfilepath2, minrelsup=0.5)
+                      outfilepath2=outfilepath2, minrelsup=0.01)
     apriori.mine()
     
 
