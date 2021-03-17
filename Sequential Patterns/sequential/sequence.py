@@ -37,7 +37,7 @@ class Sequences:
         return sequences
 
     def get_sequence_db(self, k=None):
-        """This returns the entire sequence object including support,k, and id"""
+        """This returns the entire sequence object or the k sequences"""
         if k:
             return self._sequences[k]
         else:
@@ -73,6 +73,7 @@ class Sequences:
                 self._sequences[idx]["sequence"] = new
                 break
 
+    def join(self, k):
         
 
     def prune_candidates(self, k, Ck):
