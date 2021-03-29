@@ -45,31 +45,37 @@ class GSP:
 
     def _start(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame."""    
+        print("="*50)
+        print("  Frequent Contiguous Sequence Mining using GSP")
+        print("-"*50)
         self._start_time = time.time()
         self._io = IO()
         self._db = self._io.read(self._infilepath)           
         self._minsup = self._minrelsup * len(self._db)     
+        #self._minsup = 2 # Delete and undelete prior line before submission
 
     def _end(self):
         """Write L, all frequent sequences, to file."""
         # Convert integers back to strings
         Lk = self._L.get_sequence_db()
-        print(f"Inside end. Lk is {Lk}")            
         # Write sequences to file
         self._io.write(Lk, self._outfilepath)       
         # Summarize and report elapsed time.
         self._end_time = time.time()
         e = round(self._end_time - self._start_time,3)
-        self._L.print()
+        # self._L.print()
         self._L.summary()
         print(f"Elapsed time: {e} seconds")         
 
     def _join(self, k):
+        print(f"  Joining {k} frequent sequences")
         Ck = list(map(list,[itertools.permutations(sequence,k) for sequence in self._db]))        
         Ck = list(dict.fromkeys([sequence for sequences in Ck for sequence in sequences]))
         return Ck
 
     def _prune(self, Ck, k):
+        print(f"  Pruning {k} frequent sequences")
+        print(f"        Ck: \n{Ck}")
         Ck_pruned = []
         sequences = map(list, Ck)
         for sequence in sequences:
@@ -88,9 +94,7 @@ class GSP:
 
     def _gen_lk_sequences(self,k):
         Ck = self._join(k)
-        print(f"Ck before pruning {Ck}")
         Ck = self._prune(Ck, k)
-        print(f"Ck after pruning {Ck}")
         if len(Ck) == 0:
             self._complete = True
         else:
@@ -98,21 +102,24 @@ class GSP:
 
     def _gen_L1_sequences(self):
         """Creates L1 frequent sequences as list of dictionaries."""
-        # Use itertools to return a dictionary of item and counts.        
-        sequences = collections.Counter(itertools.chain(*self._db))
+        # Get support for each item i.e. the number of rows in self._db in which the item exists.
+        sequences = collections.Counter(itertools.chain(*map(set, self._db)))
         # Add to Sequences objects        
-        for sequence, support in sequences.items(): 
-            d = {"k": 1, "id": self._sequence_id, "sequence": [sequence], "support": support}
-            self._L.add_sequence(1, d)
-            self._Lk.add_sequence(1,d)
-            self._sequence_id += 1      
+        for sequence, support in sequences.items():
+            if support >= self._minsup: 
+                d = {"k": 1, "id": self._sequence_id, "sequence": [sequence], "support": support}
+                self._L.add_sequence(1, d)
+                self._Lk.add_sequence(1,d)
+                self._sequence_id += 1      
 
     def gen(self):
         self._start()
         self._gen_L1_sequences()
+        self._L.print_status(1)
         k = 2
         while(not self._complete):
-            self._gen_lk_sequences(k)
+            self._gen_lk_sequences(k)            
+            self._L.print_status(k)
             k += 1
         self._end()
         

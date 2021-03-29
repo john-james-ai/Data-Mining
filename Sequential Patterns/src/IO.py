@@ -43,7 +43,6 @@ class IO:
         if  os.path.exists(filepath):
             os.remove(filepath)
         with open(filepath, "a") as f:       
-            print(f"\n\nPrefinal output {X}")     
             for k, sequences in X.items():
                 for sequence in sequences:
                     line = str(sequence["support"]) + ":" + str(';'.join(sequence["sequence"])) + "\n"                    

@@ -21,11 +21,13 @@ from collections import OrderedDict
 from itertools import combinations
 import numpy as np
 import pandas as pd
+import time
 # --------------------------------------------------------------------------- #
 class Sequences:
     def __init__(self):
         self._sequences = {}
-        self._sequence_counts = OrderedDict()
+        self._sequence_counts = {}
+        self._last_checkpoint = time.time()
         self.total_sequences = 0        
 
     def get_sequences(self, k):
@@ -43,9 +45,13 @@ class Sequences:
     def add_sequence(self, k, sequence):
         """Adds sequence to collection and updates counts."""
         #Get k. If k exists, append to list of sequences. Otherwise, create list
+        if k not in self._sequence_counts.keys():
+            self._sequence_counts[k] = 1            
+        else:
+            self._sequence_counts[k] += 1            
         if k not in self._sequences.keys():
-            self._sequences[k] = []
-        self._sequences[k].append(sequence)
+            self._sequences[k] = []    
+        self._sequences[k].append(sequence)        
         self.total_sequences += 1
 
     def add_sequences(self, k, sequences):
@@ -71,6 +77,13 @@ class Sequences:
             for k_ in self._sequences.keys():
                 self._print_sequences(k_)
 
+    def print_status(self, k):        
+        if k in self._sequence_counts.keys():
+            now = time.time()
+            elapsed = round(now - self._last_checkpoint,3)
+            count = self._sequence_counts[k]
+            print(f"    k:{k}   # Sequences: {count}   Elapsed: {elapsed}")
+            self._last_checkpoint = now
 
     def summary(self):
         """Summarizes the counts of sequences by size."""
@@ -78,12 +91,11 @@ class Sequences:
         h2 = "_"*40
         print("\n")
         print(h1)
-        print(f"        Itemset Counts by Size")
+        print(f"   Contiguous Sequence Counts by Size")
         print(h2)        
-        d = {"k": [k for k in self._sequence_counts.keys()], 
-             "Num": [v for v in self._sequence_counts.values()]}
-        df = pd.DataFrame(d)
-        print(df)
+        d = {"k": self._sequence_counts.keys(),"#":self._sequence_counts.values()}
+        df = pd.DataFrame(data=d)
+        print(df.to_string(index=False))         
 
 
         
