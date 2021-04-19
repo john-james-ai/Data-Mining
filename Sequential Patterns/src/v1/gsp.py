@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Monday, February 22nd 2021, 11:19:21 am                     #
-# Last Modified : Sunday, April 18th 2021, 9:16:11 pm                         #
+# Last Modified : Sunday, April 18th 2021, 10:30:35 pm                        #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -50,7 +50,10 @@ class GSP:
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
         self._start_time = time.time()
         self._io = IO()
-        self._db = self._io.read(self._infilepath)           
+        self._db = np.array(self._io.read(self._infilepath), dtype=object)
+        print(type(self._db))
+        print(self._db[0:5])           
+
         self._minsup = self._minrelsup * len(self._db)          
         #self._minsup = 2 # Delete and undelete prior line before submission
 
@@ -72,7 +75,49 @@ class GSP:
         e = round(self._end_time - self._start_time,3)
         # self._L.print()
         self._L.summary()
-        print(f"Elapsed time: {e} seconds")         
+        print(f"Elapsed time: {e} seconds")        
+
+    def _search_sequence(self, seq,review):
+        """Find a sequence in an array
+
+        Parameters 
+        ----------
+        seq : input 1D array of integers
+        review : input 1D array of integers
+
+        Output
+        ------
+        indices : 1D array of indices of the occurence of seq
+        in review. If seq is not found in review, an empty
+        list is returned.
+
+        Reference: https://stackoverflow.com/questions/36522220/searching-a-sequence-in-a-numpy-array
+        """
+        # Convert lists to numpy arrays
+        seq = np.array(seq)
+        # Store the sizes of the sequence and review
+        seq_size, review_size = seq.size, review.size
+
+        # Range of sequence
+        seq_range = np.arange(seq_size)
+
+        # Create a 2D array of sliding indices across the entire length
+        # of the review. Match with the input sequence and return the 
+        # matching starting indices.
+        M = (review[np.arange(review_size-seq_size+1)[:,None]+ seq_range] == seq).all(1)
+
+        # Get the range of those indices as final output
+        if M.any() > 0:
+            indices = np.where(np.convolve(M, np.ones((seq_size), dtype=int))>0)[0]
+        else:
+            indices = np.array([])
+        # Return 1 if found, i.e. len(indices) > 0, otherwise return 0
+        if indices.size > 0:
+            return 1
+        else:
+            return 0
+
+
 
     def _join(self, k):
         print(f"       Joining {k} frequent sequences")
@@ -86,18 +131,15 @@ class GSP:
         Ck_pruned = []
         sequences = map(list, Ck)
         for sequence in sequences:
-            #hits = []
             hits = 0
-            for idx, review in enumerate(self._db):
-                print(f"          Scanning review {idx+1} for {sequence}")
-                [hits += 1 for i in range(len(review)) if review[i:i+len(sequence)] == sequence]
-                #hits.append(any(map(lambda x: review[x:x + len(sequence)] == sequence, range(len(review) - len(sequence) + 1))))
-            if sum(hits) >= self._minsup:
+            for review in self._db:
+                hits += self._search_sequence(sequence, review)
+            if hits >= self._minsup:
                 now = time.time()
                 elapsed = round(now-previous,3)
-                print(f"          Adding the following {k}-sequence: {sequence} with support: {{{sum(hits)}}}. {elapsed} seconds elapsed.")
+                print(f"          Adding the following {k}-sequence: {sequence} with support: {{{hits}}}. {elapsed} seconds elapsed.")
                 previous = now
-                Ck_pruned.append({"k": k, "id": self._sequence_id, "sequence": sequence, "support": sum(hits)})
+                Ck_pruned.append({"k": k, "id": self._sequence_id, "sequence": sequence, "support": hits})
         return Ck_pruned
    
     def _add_sequences(self, k, Ck):
@@ -139,8 +181,8 @@ class GSP:
         
         
 if __name__ == '__main__':
-    infilepath = "../data/input.txt"
-    outfilepath = "../data/output2.txt"
+    infilepath = "../data/reviews_sample.txt"
+    outfilepath = "../data/patterns.txt"
 
     gsp = GSP(infilepath=infilepath, outfilepath=outfilepath, minrelsup=0.01)
     gsp.gen()

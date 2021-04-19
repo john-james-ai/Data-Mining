@@ -10,8 +10,8 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Thursday, February 11th 2021, 8:44:58 am                    #
-# Last Modified : Wednesday, February 17th 2021, 11:29:15 am                  #
-# Modified By   : John James (john.james@nov8.ai)                             #
+# Last Modified : Sunday, April 18th 2021, 9:55:11 pm                         #
+# Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
 # Copyright (c) 2021 nov8.ai                                                  #
@@ -65,7 +65,7 @@ class Integize(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         """Converts nested list of strings to ints."""
-        X = [[self._to_int[word] for word in sequence] for sequence in X]
+        X = [np.array([self._to_int[word] for word in sequence]) for sequence in X]
         return X
 
     def inverse_transform(self, X):
