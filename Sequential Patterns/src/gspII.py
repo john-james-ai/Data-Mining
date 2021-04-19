@@ -10,8 +10,8 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Monday, February 22nd 2021, 11:19:21 am                     #
-# Last Modified : Sunday, April 18th 2021, 9:16:11 pm                         #
-# Modified By   : John James (jtjames2@illinois.edu)                          #
+# Last Modified : Monday, February 22nd 2021, 11:19:33 am                     #
+# Modified By   : John James (john.james@nov8.ai)                             #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
 # Copyright (c) 2021 nov8.ai                                                  #
@@ -44,15 +44,20 @@ class GSP:
         self._start_time = None
         self._end_time = None 
 
+    def _get_min_support(self):
+        if infilepath != "reviews_sample.txt":
+            return 2
+        else: 
+            return self._minrelsup * len(self._db)          
+
     def _start(self):
         """Loads, maps, and creates the transaction database as a Pandas DataFrame.""" 
         now = datetime.now() 
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
         self._start_time = time.time()
         self._io = IO()
-        self._db = self._io.read(self._infilepath)           
-        self._minsup = self._minrelsup * len(self._db)          
-        #self._minsup = 2 # Delete and undelete prior line before submission
+        self._db = self._io.read(self._infilepath) 
+        self._minsup = self._get_min_support()          
 
         print("="*50)
         print("  Frequent Contiguous Sequence Mining using GSP")
@@ -81,22 +86,14 @@ class GSP:
         return Ck
 
     def _prune(self, Ck, k):
-        print(f"       Pruning {k} frequent sequences")     
-        previous = time.time()
+        print(f"       Pruning {k} frequent sequences")        
         Ck_pruned = []
         sequences = map(list, Ck)
         for sequence in sequences:
-            #hits = []
-            hits = 0
-            for idx, review in enumerate(self._db):
-                print(f"          Scanning review {idx+1} for {sequence}")
-                [hits += 1 for i in range(len(review)) if review[i:i+len(sequence)] == sequence]
-                #hits.append(any(map(lambda x: review[x:x + len(sequence)] == sequence, range(len(review) - len(sequence) + 1))))
+            hits = []
+            for review in self._db:
+                hits.append(any(map(lambda x: review[x:x + len(sequence)] == sequence, range(len(review) - len(sequence) + 1))))
             if sum(hits) >= self._minsup:
-                now = time.time()
-                elapsed = round(now-previous,3)
-                print(f"          Adding the following {k}-sequence: {sequence} with support: {{{sum(hits)}}}. {elapsed} seconds elapsed.")
-                previous = now
                 Ck_pruned.append({"k": k, "id": self._sequence_id, "sequence": sequence, "support": sum(hits)})
         return Ck_pruned
    
@@ -112,7 +109,7 @@ class GSP:
         if len(Ck) == 0:
             self._complete = True
         else:
-            self._add_sequences(k, Ck)        
+            self._add_sequences(k, Ck)         
 
     def _gen_L1_sequences(self):
         """Creates L1 frequent sequences as list of dictionaries."""
@@ -140,7 +137,7 @@ class GSP:
         
 if __name__ == '__main__':
     infilepath = "../data/input.txt"
-    outfilepath = "../data/output2.txt"
+    outfilepath = "../data/patterns.txt"
 
     gsp = GSP(infilepath=infilepath, outfilepath=outfilepath, minrelsup=0.01)
     gsp.gen()

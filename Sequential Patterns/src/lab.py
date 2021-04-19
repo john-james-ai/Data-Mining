@@ -20,15 +20,11 @@
 from collections import Counter
 import numpy as np
 # Flatten list and count elements
-item = [(1,2), (6,8,9)]
+item = [(1,2,3)]
 item = map(list,item)
-print(item)
+s1 = set(item)
 data = [[1,2,3],[1,2,3,6,8,9],[1,2,3,1,2,3], [4,5,6]]
-def list_in(a, b):
-    for item in a:
-        hits = []    
-        for review in b:
-            hits.append(any(map(lambda x: review[x:x + len(item)] == item, range(len(review) - len(item) + 1))))
-        print(sum(hits))
-print(list_in(item, data))
-# %%
+s2 = set(data)
+ck = [i for i in item if i in data]
+print(ck)
+#%%
