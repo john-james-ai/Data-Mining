@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Monday, April 19th 2021, 10:00:18 am                        #
-# Last Modified : Monday, April 19th 2021, 12:22:11 pm                        #
+# Last Modified : Monday, April 19th 2021, 1:38:14 pm                         #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -22,7 +22,7 @@ from typing import Dict
 class Node:
     """Represents a string, a concatenation of labels at d0:dn-1."""
 
-    def __init__(self, parent=None, label = ''):
+    def __init__(self, label = ''):
         """Initializes Node with empty string and no children."""        
         self.label = label          # None if root node.
         self.parent = None          # None if root node.
@@ -32,9 +32,7 @@ class Node:
         self.is_leaf = False
 
     def __str__(self):
-        return '{} -> {}'.format(self.label, self.children)
-
-
+        return f'{self.label} ({self.support}) -> {self.children}'
 
 class Trie:
     """A top-down tree structure representation of the transaction database."""
@@ -64,6 +62,7 @@ class Trie:
                 current.children[char] = Node(prefix)
             current = current.children[char]
         current.is_word = True
+        current.support += 1
 
 
     def find(self, word):
@@ -119,8 +118,6 @@ class Trie:
             count += self.size(current.children[letter])
         return count
 
-
-# Note: see trie_test.py for more formal unit testing
 if __name__ == '__main__':
     trie = Trie()
     trie.insert('apple')
@@ -131,5 +128,6 @@ if __name__ == '__main__':
     trie.insert('bad')
     trie.insert('bear')
     trie.insert('bat')
+    trie.insert('bat')
     print(trie.display())
-    #%%
+#%%%
