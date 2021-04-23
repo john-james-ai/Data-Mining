@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Thursday, February 11th 2021, 8:44:58 am                    #
-# Last Modified : Wednesday, April 21st 2021, 2:49:15 pm                      #
+# Last Modified : Thursday, April 22nd 2021, 3:56:50 pm                       #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -30,11 +30,9 @@ class IO:
 
     def read(self, filepath):
         """Loads datas into a transaction database in dictionary format."""   
-        reviews = {}             
+        reviews = []             
         with open(filepath, "r") as f:
-             lines = [line.split() for line in f]        
-             for l, line in enumerate(lines):
-                 reviews[l] = line
+            reviews = [line.split() for line in f]                    
         # Convert strings to integers
         X = self._integize.fit(reviews).transform(reviews)
         return X
@@ -60,7 +58,7 @@ class Integize(BaseEstimator, TransformerMixin):
         self._to_string = {}
 
     def fit(self, X,y=None):
-        X_flat = [word for item in X.values() for word in item]
+        X_flat = [word for item in X for word in item]
         X_unique = list(dict.fromkeys(X_flat))
         for i, word in enumerate(X_unique):
             self._to_int[word] = i
@@ -75,25 +73,24 @@ class Integize(BaseEstimator, TransformerMixin):
         X: 
         
         """
-        result = {}
-        for line, review in X.items():
-            result[line] = [self._to_int[word] for word in review]
+        result = []
+        for review in X:
+            result.append([self._to_int[word] for word in review])
         return result
 
     def inverse_transform(self, X):
         """Converts sequences (dict of nested lists) of integers to strings."""
         result = {}
-        for line, sequence in X.items():
         for k, sequences in X.items():
-            X_form[k] = []
+            result[k] = []
             for sequence in sequences:
-                if isinstance(sequence.sequence, int):
-                    d = {"k": k, "sequence": self._to_string[sequence.sequence], "support": sequence.support}                
+                if isinstance(sequence[0], int):
+                    d = {"k": k, "sequence": self._to_string[sequence[0]], "support": sequence[1]}                
                 else:
-                    string_sequence = [self._to_string[i] for i in sequence.sequence]
-                    d = {"k": k, "sequence": string_sequence, "support": sequence.support}                
-                X_form[k].append(d)
-        return X_form
+                    string_sequence = [self._to_string[i] for i in sequence[0]]
+                    d = {"k": k, "sequence": string_sequence, "support": sequence[1]}                
+                result[k].append(d)
+        return result
 
                 
 #%%

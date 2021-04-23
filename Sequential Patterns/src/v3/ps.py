@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Monday, February 22nd 2021, 11:19:21 am                     #
-# Last Modified : Thursday, April 22nd 2021, 7:35:04 am                       #
+# Last Modified : Friday, April 23rd 2021, 5:25:57 pm                         #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -30,55 +30,36 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from IO import IO
-from sequence import SequentialPatterns
-from utils import announce
-# --------------------------------------------------------------------------- #
-@dataclass
-class Sequence:
-    """A single line of input containing sequences"""
-    sid: int
-    sequence: list
-    def print(self):
-        print(f"SID: {self.sid} - {self.sequence}")
-
-# --------------------------------------------------------------------------- #
-class SequenceDB:
-    """The collection of Sequence objects which comprise the input database."""
-    def __init__(self):
-        self._sequences = OrderedDict()
-
-    def add(self,sequence):
-        """Adds a sequence object to the sequence database."""
-        self._sequences[sequence.sid] = sequence    
-
-# --------------------------------------------------------------------------- #
-@dataclass
-class SequentialPattern:
-    """A frequent sequential pattern along with its support."""    
-    pid: int
-    pattern: list
-    support: int
-    size: int
-    def print(self):
-        print(f"{self.support}: {self.pattern}")    
+from utils import announce, leaving
 # --------------------------------------------------------------------------- #
 class SequentialPatterns:
     """The collection (list) of frequent SequentialPattern objects."""
     def __init__(self):
-        self.sequential_patterns = OrderedDict()                
+        self.sequential_patterns = OrderedDict()            
 
-    def add(self, l, pattern):
-        """Adds a l-sequence pattern to the collection."""
-        if not self.sequential_patterns.has_key(l):
-            self.sequential_patterns = []
-        self.sequential_patterns[l].append(pattern)
+    def add_pattern(self, l, pattern):
+        """Adds a single l-sequence pattern to the collection"""
+        announce()
+        if l in self.sequential_patterns.keys():
+            self.sequential_patterns[l].append(pattern)
+        else:
+            self.sequential_patterns[l] = [pattern]
+        leaving()
+        
+    def register_patterns(self, l, patterns):
+        """Adds a list of l-sequence patterns to the collection at once."""
+        sequences = []
+        for pattern in patterns:
+            self.add_pattern(l, pattern)
+            sequences.append(pattern["sequence"])
+        return sequences
 
     def _print_header(self,l):
         h1 = "="*40        
         h2 = "_"*40
         print("\n")
         print(h1)
-        print(f"{l}-SequentialPatterns")
+        print(f"  Sequential Patterns Prefix Size: {l}")
         print(h2)    
 
     def _print_footer(self):
@@ -86,202 +67,208 @@ class SequentialPatterns:
         print(h2)    
 
     def print(self, l=None):
-        """Prints all sequences of size l. If l is None, prints all sequences."""
-
+        """Prints all sequences."""
         if l is not None:
             self._print_header(l)
-            for sequence in self.sequences[l]:
-                sequence.print()
+            for pattern in self.sequential_patterns[l]:                
+                print(f"{pattern['sequence']}: support: {pattern['support']}")
             self._print_footer()
         else:
-            for l, sequences in self.sequences.items():
-                self._print_header(l)
-                for sequence in sequences:
-                    sequence.print()
+            for size, patterns in self.sequential_patterns.items():
+                self._print_header(size)
+                for pattern in patterns:
+                    print(f"{pattern['sequence']}: support: {pattern['support']}")
                 self._print_footer()
 # --------------------------------------------------------------------------- #
-@dataclass
+class Candidate:
+    """A sequence and its support. """
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.support = 1
+        self.id = self.hash()
+
+    def hash(self):
+        return sum(self.sequence)
+
+        
+# --------------------------------------------------------------------------- #
+class Candidates:
+    """Accumulates support for candidates and returns frequent sequences."""
+    def __init__(self, minsup=2):
+        self.minsup = minsup
+        self.candidates = {}
+
+    def _exists(self, candidate):
+        found = False
+        if candidate.id in self.candidates.keys():
+            found = True            
+        return found
+
+    def add(self, candidate):
+        if self._exists(candidate):
+            self.candidates[candidate.id].support += 1
+        else:
+            self.candidates[candidate.id] = candidate
+
+    def get_frequent(self):
+        candidates = []
+        for idx, candidate in self.candidates.items():            
+            if candidate.support  >= self.minsup:
+                d = {"sequence": candidate.sequence, "support": candidate.support}
+                candidates.append(d)
+        return candidates
+
+# --------------------------------------------------------------------------- #
 class ProjectedDB:                    
-    """Creates a projected database dictionary consisting of a prefix and a list of suffixes."""
-    prefix: list
-    suffixes: list
+    """Projected database for a given prefix and a prior projected database."""
+    def __init__(self, prefix, projected_db):
+        self.prefix = prefix
+        self._projected_db = projected_db
+        self.projection = []
+
+    def create_projections(self):
+        """Generates the projections from the designated prefix."""        
+        announce()
+        for row in self._projected_db:
+            # Find indices of sequences matching the prefix in the projected database.
+            indices = [i for i in range(len(row)) if row[i:i+len(self.prefix)] == self.prefix]
+            # Check to confirm a sequence was found.
+            if len(indices) > 0:
+                # Get index that marks the start of the first occurrence of the prefix
+                index = indices[0]
+                # The projection (including the prefix) goes to the end of the row.
+                projection = row[index:]
+                self.projection.append(projection)
+        leaving()
+        return self.projection
+  
     def print(self):
         print(f"{self.prefix}: {self.suffixes}")
 
-
-class PrefixSpan:
-    def __init__(self, prefix, suffixes, minsup):
-        self.prefix = prefix
-        self.suffixes = suffixes
-        self._minsup = minsup
-
-    def _gen_sequences(self, l):
-        """Find all l-sequences in the projected database (prefix+suffixes)"""
-        sequences = []
-        for review, sequence in enumerate(self.suffixes):
-            for idx, item in enumerate(sequence):
-                subsequence = self.prefix + self.suffixes[idx:idx+l]                
-                if subsequence not in sequences:
-                    sequences.append(subsequence)
-        return sequences
-
-    def _get_frequent_sequences(self, l, sequences):
-        """Filters the list of sequences, returning only frequent."""
-        frequent = []
-        for candidate in sequences:
-            support = 0
-            for sequence in self.suffixes:
-                if candidate in sequence:
-                    support += 1        
-            if support >= self._minsup:
-                sequence = Sequence(candidate, support,l)
-                frequent.append(sequence)
-        return frequent
-
-    def mine(self, l):
-        """Returns all l-sequences that are frequent."""
-        sequences = self._get_l_sequences(l)
-        frequent = self._get_frequent_sequences(l, sequences)
-        return frequent        
-
-    def print(self):
-        """Prints projected database."""
-        print(f"Prefix: {prefix} | Projection: {suffixes}")
-        
-
-if __name__ == '__main__':
-    infilepath = "../../data/input.txt"
-    outfilepath = "../../data/output.txt"
-    io = IO()
-    db = Reviews(infilepath, minsup=2, io)
-    db.load()
-    l1_sequences = db.find_l1_sequences()
-    sequences = SequentialPatterns(io)
-    sequences.add(1, l1_sequences)
-    sequences.print()
-    sequences.save(outfilepath)
-
-
-
-
-
 # --------------------------------------------------------------------------- #
 class PrefixSpan:
-    def __init__(self, infilepath, outfilepath, minrelsup=0.01):
-        self._infilepath = infilepath
-        self._outfilepath = outfilepath
-        self._db = OrderedDict()            # Sequence database
-        self._minrelsup = minrelsup         # Relative minimum support
-        self._minsup = 0                    # Absolute minimum support
-        self._sequences = SequentialPatterns()       # all frequent sequences        
-        self._complete = False              # True when all frequent sequences mined.
-        self._io = None                     # Object responsible for file IO     
+    def __init__(self, sequential_db, minrelsup=0.01):
+        self._sequential_db = sequential_db     # Sequence database
+        self._minrelsup = minrelsup             # Relative minimum support
+        self._minsup = 0                        # Absolute minimum support
+        self._sequential_patterns = SequentialPatterns()  # all frequent sequences        
+        self._complete = False                  # True when all frequent sequences mined.
         self._start_time = None
         self._end_time = None 
 
     def _start(self):
-        """Loads, maps, and creates the transaction database as a Pandas DataFrame.""" 
+        """Sets minimum support and starts the clock.""" 
         now = datetime.now() 
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
         self._start_time = time.time()
-        self._io = IO()
-        self._db = self._io.read(self._infilepath)        
-        print(self._db)
+        print(self._sequential_db)
 
-        self._minsup = max(2,self._minrelsup * len(self._db))          
+        self._minsup = max(2,self._minrelsup * len(self._sequential_db))          
 
         print("="*50)
-        print("  Frequent Contiguous Sequence Mining using GSP")
+        print("  Frequent Contiguous Sequence Mining using PrefixSpan")
         print(f"            {date_time}")
         print(f"      Minimum Support: {self._minsup} ")
-        print(f"        Database Size: {len(self._db)}")
+        print(f"        Database Size: {len(self._sequential_db)}")
         print("-"*50)        
 
     def _end(self):
-        """Write L, all frequent sequences, to file."""
-        # Convert integers back to strings
-        Lk = self._L.get_sequence_db()
-        # Write sequences to file
-        self._io.write(Lk, self._outfilepath)       
-        # Summarize and report elapsed time.
+        """Stops the clock and returns sequential patterns."""
         self._end_time = time.time()
+        # Obtains sequential patterns as a list of dictionaries.
+        n = len(self._sequential_patterns.sequential_patterns)
         e = round(self._end_time - self._start_time,3)
-        # self._L.print()
-        self._L.summary()
-        print(f"Elapsed time: {e} seconds")        
+        print(f"{n} Frequent Contiguous Sequential Patterns Mined. Elapsed time: {e} seconds")        
 
-    def _get(self, alpha,l,pdb):        
-        announce()  
-        sequences = list()   
-
-        # Find all l-sequences in pdb       
-        for review, sequence in enumerate(pdb):
-            for idx, item in enumerate(sequence):
-                subsequence = pdb[review][idx:idx+(l+1)]
-                if subsequence not in sequences:
-                    sequences.append(subsequence)
-
-        # Compute support for each sequence in pdb.
-        for candidate in sequences:
-            support = 0
-            for sequence in pdb:
-                if candidate in sequence:
-                    support += 1
-            
-
-        
-        print(f"Sequence before counting: {sequences}")
-        sequences = collections.Counter([tuple(i) for i in sequences])        
-        #sequences = collections.Counter(tuple(i) for i in sequences)        
-        #sequences = collections.Counter(tuple(i) for i in pdb)        
-        print(f"Sequence after counting: {sequences}")
-        
-
-
-    def _get_projected_database(self, alpha, db):
+    def _gen_l1_sequential_patterns(self, prefix, l, projected_db):
+        """Creates l1 frequent sequences as list of dictionaries."""
         announce()        
-        pdb = []
-        for review, sequence in enumerate(db):
-            for idx, item in enumerate(sequence):
-                if item == alpha:
-                    pdb.append(db[review][idx:])
-                    break
-        #pdb = [db[row][idx:] for row, sequence in enumerate(db) for idx, item in enumerate(sequence) if item == alpha]
-        print(f"\nProjecting {alpha}: {pdb}")
-        return pdb
-
-    def _gen_L1_sequences(self):
-        announce()
-        """Creates L1 frequent sequences as list of dictionaries."""
-        # Get support for each item i.e. the number of rows in self._db in which the item exists.
-        candidates = collections.Counter(itertools.chain(*map(set, self._db)))        
-        # Extract frequent sequences of length 1
-        frequent = {item:support for item, support in candidates.items() if support >= self._minsup}        
-        # Create sequences object and add frequent sequences
-        sequences = SequentialPatterns()
-        sequences.add(1,frequent) 
+        # Extract l1 candidates with support
+        candidates = collections.Counter(itertools.chain(*map(set, projected_db)))        
+        # Obtain l1 sequences with minimum support        
+        sequential_patterns = [{"sequence":[item], "support": support} for item, support in candidates.items() if support >= self._minsup]
+        # Register the sequential pattern with support and the method returns the sequences
+        sequences = self._sequential_patterns.register_patterns(l, sequential_patterns)        
         return sequences
+
+    def _gen_ln_sequential_patterns(self, prefix, l, projected_db):
+        """Generates l>1 sequential patterns."""
+        announce()
+        candidates = Candidates(self._minsup)
+        print(projected_db)
+        # Obtain sequences of length l that follow the prefix
+        for row in projected_db:            
+            # Find the indices   of the suffix that follows the prefix
+            indices = [i for i in range(len(row)) if row[i:i+len(prefix)] == prefix]
+            # Check to see an item was found
+            if len(indices) > 0:                
+                # Get index that mark the start and end of the first sequence that includes the prefix
+                start = indices[0]
+                end = start + len(prefix) + 1
+                # Confirm that the prefix isn't at the end of the row.
+                if end <= len(row):
+                    # Obtain the sequence
+                    sequence = row[start:end]
+                    candidate = Candidate(sequence)
+                    candidates.add(candidate)
+        
+        sequential_patterns = candidates.get_frequent()
+        print(f"Sequantial patterns from candidates {sequential_patterns}")
+        sequences = self._sequential_patterns.register_patterns(l, sequential_patterns)
+        print(f"Sequences once registered {sequences}")
+        
+        leaving()
+        return sequences
+
+    def _scan_projected_db(self, prefix, l, projected_db):
+        """Scans projected databases for frequent sequences"""
+        announce()
+        if l == 0:
+            sequences = self._gen_l1_sequential_patterns(prefix, l, projected_db)
+        else:
+            sequences = self._gen_ln_sequential_patterns(prefix, l, projected_db)
+        print(sequences)
+        leaving()
+        return sequences
+
+    def prefix_span(self, prefix, l, projected_db):        
+        announce()         
+
+        sequences = self._scan_projected_db(prefix, l, projected_db)
+        print(sequences)
+        # Print for debugging purposes
+        self._sequential_patterns.print(l)
+        # For each sequential pattern, append to prefix and construct a projected database.
+        for item in sequences:
+            print(f"Creating projected database for {item}")
+            projected_db = ProjectedDB(prefix=item, projected_db=projected_db).create_projections()
+            print(f"Created projected database {projected_db}")
+            self.prefix_span(item, l+1, projected_db)
+        leaving()
+
 
     def mine(self):
         self._start()
-        sequences = self._gen_L1_sequences()
-        for sequence in sequences.keys():
-            self._prefix_span(sequence,1,pdb)
-        #self._prefix_span(self._)
-        # self._L.print_status(1)
-        # k = 2
-        # while(not self._complete):
-        #     self._gen_lk_sequences(k)            
-        #     self._L.print_status(k)
-        #     k += 1
-        # self._end()
+        self.prefix_span([], l=0,projected_db=self._sequential_db)
+        self._end()        
+        return self._sequential_patterns.sequential_patterns
         
+def main(infilepath, outfilepath):
+    # Obtain the sequences as a list of lists
+    io = IO()
+    sequential_db = io.read(infilepath)
+        
+    # Create the prefix span object and mine frequent contiguous sequential patterns.
+    ps = PrefixSpan(sequential_db, minrelsup=0.01)
+    sequential_patterns = ps.mine()
+
+    # Write sequential patterns to output
+    io.write(sequential_patterns, outfilepath)
+
         
 if __name__ == '__main__':
     infilepath = "../../data/input.txt"
     outfilepath = "../../data/output.txt"
-
-    ps = PrefixSpan(infilepath=infilepath, outfilepath=outfilepath, minrelsup=0.01)
-    ps.mine()
+    main(infilepath, outfilepath)
 
 #%%    
