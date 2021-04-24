@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Monday, February 22nd 2021, 11:19:21 am                     #
-# Last Modified : Friday, April 23rd 2021, 5:25:57 pm                         #
+# Last Modified : Saturday, April 24th 2021, 2:07:13 am                       #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -36,10 +36,12 @@ class SequentialPatterns:
     """The collection (list) of frequent SequentialPattern objects."""
     def __init__(self):
         self.sequential_patterns = OrderedDict()            
+        self.count = 0
 
     def add_pattern(self, l, pattern):
         """Adds a single l-sequence pattern to the collection"""
         announce()
+        self.count += 1
         if l in self.sequential_patterns.keys():
             self.sequential_patterns[l].append(pattern)
         else:
@@ -52,8 +54,8 @@ class SequentialPatterns:
         for pattern in patterns:
             self.add_pattern(l, pattern)
             sequences.append(pattern["sequence"])
-        return sequences
-
+        return sequences        
+        
     def _print_header(self,l):
         h1 = "="*40        
         h2 = "_"*40
@@ -160,8 +162,7 @@ class PrefixSpan:
         """Sets minimum support and starts the clock.""" 
         now = datetime.now() 
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
-        self._start_time = time.time()
-        print(self._sequential_db)
+        self._start_time = time.time()        
 
         self._minsup = max(2,self._minrelsup * len(self._sequential_db))          
 
@@ -173,12 +174,10 @@ class PrefixSpan:
         print("-"*50)        
 
     def _end(self):
-        """Stops the clock and returns sequential patterns."""
+        """Stops the clock."""
         self._end_time = time.time()
         # Obtains sequential patterns as a list of dictionaries.
-        n = len(self._sequential_patterns.sequential_patterns)
-        e = round(self._end_time - self._start_time,3)
-        print(f"{n} Frequent Contiguous Sequential Patterns Mined. Elapsed time: {e} seconds")        
+        self._status()  
 
     def _gen_l1_sequential_patterns(self, prefix, l, projected_db):
         """Creates l1 frequent sequences as list of dictionaries."""
@@ -195,7 +194,7 @@ class PrefixSpan:
         """Generates l>1 sequential patterns."""
         announce()
         candidates = Candidates(self._minsup)
-        print(projected_db)
+        
         # Obtain sequences of length l that follow the prefix
         for row in projected_db:            
             # Find the indices   of the suffix that follows the prefix
@@ -212,10 +211,8 @@ class PrefixSpan:
                     candidate = Candidate(sequence)
                     candidates.add(candidate)
         
-        sequential_patterns = candidates.get_frequent()
-        print(f"Sequantial patterns from candidates {sequential_patterns}")
-        sequences = self._sequential_patterns.register_patterns(l, sequential_patterns)
-        print(f"Sequences once registered {sequences}")
+        sequential_patterns = candidates.get_frequent()        
+        sequences = self._sequential_patterns.register_patterns(l, sequential_patterns)       
         
         leaving()
         return sequences
@@ -227,7 +224,7 @@ class PrefixSpan:
             sequences = self._gen_l1_sequential_patterns(prefix, l, projected_db)
         else:
             sequences = self._gen_ln_sequential_patterns(prefix, l, projected_db)
-        print(sequences)
+        
         leaving()
         return sequences
 
@@ -235,23 +232,31 @@ class PrefixSpan:
         announce()         
 
         sequences = self._scan_projected_db(prefix, l, projected_db)
-        print(sequences)
-        # Print for debugging purposes
-        self._sequential_patterns.print(l)
-        # For each sequential pattern, append to prefix and construct a projected database.
-        for item in sequences:
-            print(f"Creating projected database for {item}")
-            projected_db = ProjectedDB(prefix=item, projected_db=projected_db).create_projections()
-            print(f"Created projected database {projected_db}")
-            self.prefix_span(item, l+1, projected_db)
+        if len(sequences) > 0:
+            
+            # For each sequential pattern, append to prefix and construct a projected database.
+            for item in sequences:
+                projected_db = ProjectedDB(prefix=item, projected_db=projected_db).create_projections()
+                self.prefix_span(item, l+1, projected_db)
         leaving()
 
 
     def mine(self):
         self._start()
-        self.prefix_span([], l=0,projected_db=self._sequential_db)
+        sequences = self._gen_l1_sequential_patterns([], l=0, projected_db=self._sequential_db)
+        for sequence in sequences:
+            projected_db = ProjectedDB(prefix=sequence, projected_db=self._sequential_db).create_projections()
+            self.prefix_span(sequence, l=1,projected_db=projected_db)
+            self._status()
+
         self._end()        
         return self._sequential_patterns.sequential_patterns
+
+    def _status(self):
+        current_time = time.time()
+        e = round(current_time - self._start_time,3)        
+        n = self._sequential_patterns.count        
+        print(f"{n} Frequent Contiguous Sequential Patterns Mined. Elapsed time: {e} seconds")                            
         
 def main(infilepath, outfilepath):
     # Obtain the sequences as a list of lists
@@ -260,15 +265,15 @@ def main(infilepath, outfilepath):
         
     # Create the prefix span object and mine frequent contiguous sequential patterns.
     ps = PrefixSpan(sequential_db, minrelsup=0.01)
-    sequential_patterns = ps.mine()
+    sequential_patterns = ps.mine()    
 
     # Write sequential patterns to output
     io.write(sequential_patterns, outfilepath)
 
         
 if __name__ == '__main__':
-    infilepath = "../../data/input.txt"
-    outfilepath = "../../data/output.txt"
+    infilepath = "../../data/reviews_sample.txt"
+    outfilepath = "../../data/patterns.txt"
     main(infilepath, outfilepath)
 
 #%%    

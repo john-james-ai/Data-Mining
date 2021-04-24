@@ -10,7 +10,7 @@
 # URL     : https://github.com/john-james-sf/Data-Mining/                     #
 # --------------------------------------------------------------------------- #
 # Created       : Thursday, February 11th 2021, 8:44:58 am                    #
-# Last Modified : Thursday, April 22nd 2021, 3:56:50 pm                       #
+# Last Modified : Saturday, April 24th 2021, 12:32:04 am                      #
 # Modified By   : John James (jtjames2@illinois.edu)                          #
 # --------------------------------------------------------------------------- #
 # License : BSD                                                               #
@@ -84,11 +84,8 @@ class Integize(BaseEstimator, TransformerMixin):
         for k, sequences in X.items():
             result[k] = []
             for sequence in sequences:
-                if isinstance(sequence[0], int):
-                    d = {"k": k, "sequence": self._to_string[sequence[0]], "support": sequence[1]}                
-                else:
-                    string_sequence = [self._to_string[i] for i in sequence[0]]
-                    d = {"k": k, "sequence": string_sequence, "support": sequence[1]}                
+                string_sequence = [self._to_string[i] for i in sequence["sequence"]]
+                d = {"k": k, "sequence": string_sequence, "support": sequence["support"]}                
                 result[k].append(d)
         return result
 
